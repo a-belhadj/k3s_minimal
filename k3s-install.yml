@@ -3,14 +3,20 @@
   hosts: k3s_master
   become: true
   tasks:
+    - name: Create .cache/tmp directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.cache/tmp"
+        state: directory
+        mode: '0755'
+
     - name: Download k3s install script
       ansible.builtin.get_url:
         url: https://get.k3s.io
-        dest: /tmp/k3s-install.sh
+        dest: "{{ ansible_env.HOME }}/.cache/tmp/k3s-install.sh"
         mode: '0755'
 
     - name: Install k3s
-      ansible.builtin.shell: /tmp/k3s-install.sh
+      ansible.builtin.shell: "{{ ansible_env.HOME }}/.cache/tmp/k3s-install.sh"
       environment:
         INSTALL_K3S_EXEC: "server --config {{ playbook_dir }}/k3s/config.yaml"
       args:
