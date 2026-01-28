@@ -28,9 +28,38 @@
         state: present
         timeout: 60
 
-    - name: Copy kubeconfig to repo directory
-      ansible.builtin.copy:
+    - name: Fetch kubeconfig from master
+      ansible.builtin.slurp:
         src: /etc/rancher/k3s/k3s.yaml
-        dest: "{{ playbook_dir }}/kubeconfig"
-        remote_src: true
+      register: kubeconfig_content
+
+    - name: Parse kubeconfig
+      ansible.builtin.set_fact:
+        kubeconfig_data: "{{ kubeconfig_content.content | b64decode | from_yaml }}"
+
+    - name: Write original to repo directory
+      ansible.builtin.copy:
+        content: "{{ kubeconfig_data | to_nice_yaml }}"
+        dest: "{{ playbook_dir }}/original.kubeconfig"
         mode: '0644'
+      delegate_to: localhost
+
+    - name: Create external kubeconfig
+      block:
+      - name: Update server address in kubeconfig
+        ansible.utils.update_fact:
+          updates:
+            - path: kubeconfig_data.clusters[0].cluster.server
+              value: "https://{{ ansible_fqdn }}:6443"
+            - path: kubeconfig_data.contexts[0].name
+              value: "{{ ansible_hostname }}"
+            - path: kubeconfig_data.current-context
+              value: "{{ ansible_hostname }}"
+        register: updated_kubeconfig
+
+      - name: Write kubeconfig to repo directory
+        ansible.builtin.copy:
+          content: "{{ updated_kubeconfig.kubeconfig_data | to_nice_yaml }}"
+          dest: "{{ playbook_dir }}/external.kubeconfig"
+          mode: '0644'
+        delegate_to: localhost
