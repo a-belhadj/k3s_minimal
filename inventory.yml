@@ -1,0 +1,6 @@
+all:
+  children:
+    k3s_master:
+      hosts:
+        localhost:
+          ansible_connection: local

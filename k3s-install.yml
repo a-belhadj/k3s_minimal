@@ -1,0 +1,30 @@
+---
+- name: Install k3s cluster
+  hosts: k3s_master
+  become: true
+  tasks:
+    - name: Download k3s install script
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s-install.sh
+        mode: '0755'
+
+    - name: Install k3s
+      ansible.builtin.shell: /tmp/k3s-install.sh
+      environment:
+        INSTALL_K3S_EXEC: "server --config {{ playbook_dir }}/k3s/config.yaml"
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for k3s to be ready
+      ansible.builtin.wait_for:
+        path: /etc/rancher/k3s/k3s.yaml
+        state: present
+        timeout: 60
+
+    - name: Copy kubeconfig to repo directory
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ playbook_dir }}/kubeconfig"
+        remote_src: true
+        mode: '0644'
